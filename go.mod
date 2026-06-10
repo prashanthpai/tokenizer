@@ -1,6 +1,6 @@
 module github.com/superfly/tokenizer
 
-go 1.24.9
+go 1.25.11
 
 require (
 	github.com/alecthomas/assert/v2 v2.11.0
