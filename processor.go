@@ -49,6 +49,8 @@ const (
 	SubtokenRefresh = "refresh"
 )
 
+const injectHMACMaxBodyBytes int64 = 1 << 20 // 1 MiB
+
 type RequestProcessor func(r *http.Request) error
 
 type ProcessorConfig interface {
@@ -180,22 +182,36 @@ func (c *InjectHMACProcessorConfig) Processor(params map[string]string) (Request
 		return nil, errors.New("missing hmac key")
 	}
 
-	var buf io.Reader
+	var payload string
+	var hasPayload bool
 	if p, ok := params[ParamPayload]; ok {
-		buf = bytes.NewReader([]byte(p))
+		payload = p
+		hasPayload = true
 	}
 
 	return func(r *http.Request) error {
 		hm := hmac.New(h.New, c.Key)
 
-		if buf == nil {
-			bbuf := new(bytes.Buffer)
-			buf = io.TeeReader(r.Body, bbuf)
-			r.Body = io.NopCloser(bbuf)
-		}
+		if !hasPayload {
+			if r.ContentLength > injectHMACMaxBodyBytes {
+				return &http.MaxBytesError{Limit: injectHMACMaxBodyBytes}
+			}
 
-		if _, err := io.Copy(hm, buf); err != nil {
-			return err
+			body := r.Body
+			if body == nil {
+				body = http.NoBody
+			}
+			body = http.MaxBytesReader(nil, body, injectHMACMaxBodyBytes)
+
+			bbuf := new(bytes.Buffer)
+			if _, err := io.Copy(hm, io.TeeReader(body, bbuf)); err != nil {
+				return err
+			}
+			r.Body = io.NopCloser(bbuf)
+		} else {
+			if _, err := io.WriteString(hm, payload); err != nil {
+				return err
+			}
 		}
 
 		val, err := c.ApplyFmt(params, true, hm.Sum(nil))

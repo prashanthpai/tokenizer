@@ -384,6 +384,27 @@ func TestOAuthBodyProcessorConfig(t *testing.T) {
 	}
 }
 
+func TestInjectHMACProcessorConfigBodyTooLarge(t *testing.T) {
+	config := InjectHMACProcessorConfig{
+		Key:  []byte("trustno1"),
+		Hash: "sha256",
+	}
+
+	proc, err := config.Processor(map[string]string{})
+	assert.NoError(t, err)
+
+	req := &http.Request{
+		Header:        make(http.Header),
+		Body:          stringToReadCloser(strings.Repeat("x", int(injectHMACMaxBodyBytes)+1)),
+		ContentLength: -1,
+	}
+
+	err = proc(req)
+	assert.Error(t, err)
+	_, ok := err.(*http.MaxBytesError)
+	assert.True(t, ok)
+}
+
 // Helper function to convert string to io.ReadCloser
 func stringToReadCloser(s string) io.ReadCloser {
 	return io.NopCloser(strings.NewReader(s))
