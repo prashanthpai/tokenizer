@@ -116,7 +116,14 @@ func runServe() {
 		tkz.ProxyHttpServer.Logger = logrus.StandardLogger()
 	}
 
-	server := &http.Server{Handler: tkz}
+	server := &http.Server{
+		Handler:           tkz,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       90 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
 
 	go func() {
 		if err := server.Serve(l); !errors.Is(err, http.ErrServerClosed) {
