@@ -87,7 +87,10 @@ func Transport(proxyURL string, opts ...ClientOption) (http.RoundTripper, error)
 
 	t := copts.getTransport()
 	t.Proxy = http.ProxyURL(u)
-	t.TLSClientConfig = &tls.Config{RootCAs: downstreamTrust}
+	t.TLSClientConfig = &tls.Config{
+		RootCAs:    downstreamTrust,
+		MinVersion: tls.VersionTLS12,
+	}
 	// t.ForceAttemptHTTP2 = true
 
 	return forceHTTP(headerInjector(t, copts.headers)), nil
